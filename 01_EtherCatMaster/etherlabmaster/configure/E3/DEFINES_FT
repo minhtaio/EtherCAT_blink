@@ -1,0 +1,104 @@
+# Keep always the module up-to-date
+define git_module_init_update =
+git submodule deinit -f $@/
+sed -i '/submodule/,24465d'  $(TOP)/.git/config
+rm -rf $(TOP)/.git/modules/$@
+git submodule init $@/
+git submodule update --init --recursive $@/.
+git submodule update --remote --merge $@/
+endef
+
+define git_update =
+git submodule update --init --recursive $@/.
+git submodule update --remote --merge $@/
+endef
+
+define patch_site
+for i in $(wildcard $(TOP)/patch/Site/*p0.patch); do\
+	printf "\nPatching %s with the file : %s\n" "$(E3_MODULE_SRC_PATH)" "$$i";\
+	patch -d $(E3_MODULE_SRC_PATH) --ignore-whitespace -p0 < $$i;\
+done
+endef
+
+
+define patch_revert_site
+for i in $(wildcard $(TOP)/patch/Site/*p0.patch); do\
+	printf "\nReverting Site patch files in %s  : %s\n" "$(E3_MODULE_SRC_PATH)" "$$i";\
+	patch -R -d $(E3_MODULE_SRC_PATH) --ignore-whitespace -p0 < $$i;\
+done
+endef
+
+
+define patchset
+for i in $(wildcard $(TOP)/patch/patchset/*p0.patch); do\
+	printf "\nPatching %s with the Patchset file : %s\n" "$(E3_MODULE_SRC_PATH)" "$$i";\
+	patch -d $(E3_MODULE_SRC_PATH) --ignore-whitespace -p0 < $$i;\
+done
+endef
+
+
+define patchset_revert
+for i in $(wildcard $(TOP)/patch/patchset/*p0.patch); do\
+	printf "\nReverting Patchset patch files in %s : %s\n" "$(E3_MODULE_SRC_PATH)" "$$i";\
+	patch -R -d $(E3_MODULE_SRC_PATH) --ignore-whitespace -p0 < $$i;\
+done
+endef
+
+
+define patchcentos7
+for i in $(wildcard $(TOP)/patch/CentOS7/*p0.patch); do\
+	printf "\nPatching %s with the CentOS7 file : %s\n" "$(E3_MODULE_SRC_PATH)" "$$i";\
+	patch -d $(E3_MODULE_SRC_PATH) --ignore-whitespace -p0 < $$i;\
+done
+endef
+
+
+define patchcentos7_revert
+for i in $(wildcard $(TOP)/patch/CentOS7/*p0.patch); do\
+	printf "\nReverting CentOS7 patch files in %s : %s\n" "$(E3_MODULE_SRC_PATH)" "$$i";\
+	patch -R -d $(E3_MODULE_SRC_PATH) --ignore-whitespace -p0 < $$i;\
+done
+endef
+
+
+## p1 patch
+define patchCCAT
+for i in $(wildcard $(TOP)/patch/CCAT/*patch); do\
+	printf "\nPatching %s with the CCAT patch file : %s\n" "$(E3_MODULE_SRC_PATH)" "$$i";\
+	patch -d $(E3_MODULE_SRC_PATH) --ignore-whitespace -p1 < $$i;\
+done
+endef
+
+
+define patchCCAT_revert
+for i in $(wildcard $(TOP)/patch/CCAT/*patch); do\
+	printf "\nReverting CCAT patch files in %s : %s\n" "$(E3_MODULE_SRC_PATH)" "$$i";\
+	patch -R -d $(E3_MODULE_SRC_PATH) --ignore-whitespace -p1 < $$i;\
+done
+endef
+
+
+
+
+ifndef VERBOSE
+  QUIET := @
+endif
+
+ifdef DEBUG_SHELL
+  SHELL = /bin/sh -x
+endif
+
+
+### Exclude the following variables to display 
+VARS_EXCLUDES+=git_update
+VARS_EXCLUDES+=git_module_init_update
+VARS_EXCLUDES+=patch_site
+VARS_EXCLUDES+=patch_revert_site
+VARS_EXCLUDES+=patchset
+VARS_EXCLUDES+=patchset_revert
+VARS_EXCLUDES+=QUIET
+VARS_EXCLUDES+=SHELL
+VARS_EXCLUDES+=patchcentos7
+VARS_EXCLUDES+=patchcentos7_revert
+VARS_EXCLUDES+=patchCCAT
+VARS_EXCLUDES+=patchCCAT_revert

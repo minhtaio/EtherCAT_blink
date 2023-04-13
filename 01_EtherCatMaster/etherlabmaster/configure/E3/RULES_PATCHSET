@@ -1,0 +1,67 @@
+
+HG_CFG:=$(HOME)/.hgrc
+
+.PHONY: orig_patchset patchset hgcfg patchset_clean
+
+# Cloning the Etherlab master patchset 20180622
+# an unofficial patchset maintained by Gavin Lambert <gavin.lambert@tomra.com>
+# http://hg.code.sf.net/u/uecasm/etherlab-patches
+#
+ifeq ($(WITH_PATCHSET),YES)
+patchset: deinit patchset_hgcfg orig_patchset  patchset_patch
+	$(MAKE) patch
+else
+patchset:
+	$(QUIET) echo ">>"
+	$(QUIET) echo "  Please add  WITH_PATCHSET=YES within configure/CONFIG_OPTIONS via"
+	$(QUIET) echo "  echo \"WITH_PATCHSET=YES\" >> configure/CONFIG_OPTIONS.local"
+endif
+
+
+orig_patchset:
+ifneq (, $(HG_CMD))
+	hg clone -u $(EPICS_MODULE_TAG) http://hg.code.sf.net/p/etherlabmaster/code $(E3_MODULE_SRC_PATH)
+	hg clone -u $(PATCHSET_TAG) http://hg.code.sf.net/u/uecasm/etherlab-patches $(E3_MODULE_SRC_PATH)/.hg/patches
+	cd $(E3_MODULE_SRC_PATH) && hg qpush -a
+else
+	$(QUIET)echo ""
+	$(QUIET)echo "-----------------------------------------------------------------------"
+	$(QUIET)echo ">>>>  Please install mercurial, hg is needed to download sources   <<<<"
+	$(QUIET)echo "-----------------------------------------------------------------------"
+	$(QUIET)false
+endif
+
+patchset_hgcfg:
+	@echo "[extensions]"  > $(HG_CFG)
+	@echo "mq = "        >> $(HG_CFG)
+	@echo "progress = "  >> $(HG_CFG)
+	@echo "color = "     >> $(HG_CFG)
+	@echo "[ui]"         >> $(HG_CFG)
+	@echo "username = iocuser <iocuser_at_esss.se>"   >> $(HG_CFG)
+	@echo "[color]"      >> $(HG_CFG)
+	@echo "mode = auto"  >> $(HG_CFG)
+
+
+patchset_clean: deinit
+	@rm -f $(HOME)/.hgrc
+
+
+
+.PHONY: patchset_patch patchset_patchrevert
+
+patchset_patch:
+	$(QUIET) $(call patchset)
+
+patchset_patchrevert:
+	$(QUIET) $(call patchset_revert)
+
+
+VARS_EXCLUDES+=HG_CFG
+VARS_EXCLUDES+=patchset_patch
+VARS_EXCLUDES+=patchset_patchrevert
+VARS_EXCLUDES+=patchset_hgcfg
+VARS_EXCLUDES+=patchset
+VARS_EXCLUDES+=orig_patchset
+ifeq ($(WITH_PATCHSET),NO)
+VARS_EXCLUDES+=ENABLE_RTMUTEX
+endif

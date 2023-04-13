@@ -1,0 +1,39 @@
+# IF E3_ETHERLAB_INSTALL_LOCATION is not WRITABLE, SUDO and SUDOBASH should be used 
+# SUDO_INFO 1 : SUDO is needed (NOT writable)
+# SUDO_INFO 0 : SUDO is not needed
+SUDO_INFO := $(shell test -w $(E3_ETHERLAB_INSTALL_LOCATION) 1>&2 2> /dev/null; echo $$?)
+SUDO_CMD:=$(shell which sudo)
+
+# For CentOS, devtoolset-{7,8} has -E option within sudo shell
+# So we have to remove -E option as well if we would like to use devtoolset
+#
+ifeq "$(SUDO_INFO)" "1"
+ifneq (,$(findstring devtoolset,$(SUDO_CMD)))
+SUDOE = $(SUDO_CMD)
+else
+SUDOE = $(SUDO_CMD) -E
+endif
+SUDOBASH := $(SUDOE) bash -c
+else
+SUDOE :=
+SUDOBASH = bash -c
+endif
+
+
+ifneq (,$(findstring devtoolset,$(SUDO_CMD)))
+SUDO2 := $(SUDO_CMD) bash -c
+else
+SUDO2 := $(SUDO_CMD) -E bash -c
+endif
+
+
+# Valid for only Development Mode, because we clone/remove them
+# See RULES_DEV
+# E3_MODULE_SRC_PATH_INFO 1 : the directory is not there
+# E3_MODULE_SRC_PATH_INFO 0 : the directory is there
+E3_MODULE_SRC_PATH_INFO := $(shell test -d $(E3_MODULE_SRC_PATH) 1>&2 2> /dev/null; echo $$?)
+
+ifeq "$(E3_MODULE_SRC_PATH_INFO)" "1"
+INIT_E3_MODULE_SRC = 1
+endif    
+

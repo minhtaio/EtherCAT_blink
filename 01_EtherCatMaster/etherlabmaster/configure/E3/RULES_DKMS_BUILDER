@@ -1,0 +1,61 @@
+
+
+map = $(foreach a,$2,$(call $1,$a))
+is-yes = $(if $(filter YES,$(value $1)),$1)
+variable-yes = $(call map,is-yes,$1)
+
+WITH_VARIABLES=$(sort $(filter-out $(VARS_EXCLUDES) VARS_EXCLUDES,$(.VARIABLES)))
+DEV_OPTS_VARS=$(filter WITH_DEV_%, $(WITH_VARIABLES))
+YES_VARS=$(strip $(call variable-yes,$(DEV_OPTS_VARS)))
+NYES=$(words $(YES_VARS))
+DEVICE_MODULES:=$(TOP)/scripts/DEVICE_MODULES.local
+
+dkms_vars:
+	@echo "$(NYES) : $(YES_VARS)"
+
+
+# Do we need more than ONE device? According to Figure 2.1 in the manual,
+# We can use multiple masters. DEVICE_MODULES should be defined in ethercat.conf
+
+yesconf:
+	$(QUIET) rm -rf $(TOP)/dkms/*.local  $(TOP)/scripts/*.local
+	$(QUIET) sed -e "s:__VERSION__:$(E3_MODULE_VERSION):g" < $(TOP)/dkms/dkmsDev0.in > $(TOP)/dkms/dkmsDev0.local
+	@init_drv_num=0;\
+	device_modules="";\
+	for drv in $(YES_VARS); do\
+	    driver_path_name=$$(echo $$drv | sed -e "s:WITH_DEV_::g" | sed -e 's/\(.*\)/\L\1/');\
+	    if [ "$$driver_path_name" = "ccat" ]; then\
+	      driver_name=$$(echo $$driver_path_name)"_netdev";\
+	    else\
+	      driver_name="$$driver_path_name";\
+	    fi;\
+	    device_modules="$$driver_name $$device_modules";\
+	    driver_name="$$driver_name";\
+	    init_drv_num=$$(($$init_drv_num+1));\
+#	    echo "$$init_drv_num $$drv $$driver_name";\
+	    if [ "$$driver_name" = "generic" ]; then\
+	      sed -e "s:__NUMBER__:$$init_drv_num:g" < $(TOP)/dkms/dkmsDevGeneric.in > $(TOP)/dkms/dkmsDev$$init_drv_num.local;\
+	    else\
+	      sed -e "s:__PATHNAME__:"$$driver_path_name":g" -e "s:__NAME__:"$$driver_name":g" -e "s:__NUMBER__:$$init_drv_num:g" < $(TOP)/dkms/dkmsDevN.in > $(TOP)/dkms/dkmsDev$$init_drv_num.local;\
+	    fi;\
+	done;\
+	echo "DEVICE_MODULES=\"$${device_modules%?}\"" > $(TOP)/scripts/device_modules.conf
+
+
+dkmsconf: yesconf
+	$(QUIET)cat $(sort $(wildcard $(TOP)/dkms/*.local)) > $(E3_MODULE_SRC_PATH)/dkms.conf
+	$(QUIET)echo ""  >>$(E3_MODULE_SRC_PATH)/dkms.conf
+	$(QUIET)echo "REMAKE_INITRD=yes" >>$(E3_MODULE_SRC_PATH)/dkms.conf
+
+
+
+.PHONY: dkms_vars yesconf
+
+VARS_EXCLUDES+=map
+VARS_EXCLUDES+=is-yes
+VARS_EXCLUDES+=variable-yes
+VARS_EXCLUDES+=WITH_VARIABLES
+VARS_EXCLUDES+=DEV_OPTS_VARS
+VARS_EXCLUDES+=YES_VARS
+VARS_EXCLUDES+=NYES
+VARS_EXCLUDES+=DEVICE_MODULES

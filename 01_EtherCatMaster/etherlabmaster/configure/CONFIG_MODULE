@@ -1,0 +1,34 @@
+#
+EPICS_MODULE_NAME:=etherlabmaster
+
+#jhlee@qweak: etherlabmaster-code (master)$ hg heads
+#changeset:   2296:0c011dc6dbc4
+#branch:      stable-1.5
+#tag:         tip
+#user:        Florian Pose
+#date:        Fri Jun 14 12:42:52 2019 +0200
+#summary:     Fixed memory leak concerning library ecrt_master_deactivate().
+
+EPICS_MODULE_TAG:=0c011dc6dbc4
+#EPICS_MODULE_TAG:=9e65f782e8a1
+
+
+E3_ETHERLAB_INSTALL_LOCATION:=/opt/etherlab
+
+#
+# We set this version as 1.5.2 as ESS
+# However, we don't use this, because we would like to keep etherlabmaster away from E3 directory and building system.
+
+E3_MODULE_VERSION=1.5.2
+
+# In most case, we don't need to touch the following variables.
+#
+E3_ETHERLAB_BRANCH:=stable-1.5
+
+E3_MODULE_NAME:=$(EPICS_MODULE_NAME)
+E3_MODULE_SRC_PATH:=etherlabmaster-code
+E3_MODULE_MAKEFILE:=$(EPICS_MODULE_NAME).Makefile
+
+
+# The definitions shown below can also be placed in an untracked CONFIG_MODULE.local
+-include $(TOP)/configure/CONFIG_MODULE.local
