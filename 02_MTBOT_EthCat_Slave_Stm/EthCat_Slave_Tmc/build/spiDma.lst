@@ -1,0 +1,875 @@
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"spiDma.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.section	.text.SpiDma_Init,"ax",%progbits
+  20              		.align	1
+  21              		.global	SpiDma_Init
+  22              		.syntax unified
+  23              		.thumb
+  24              		.thumb_func
+  26              	SpiDma_Init:
+  27              	.LVL0:
+  28              	.LFB135:
+  29              		.file 1 "Application/Drivers/spiDma/spiDma.c"
+   1:Application/Drivers/spiDma/spiDma.c **** /**
+   2:Application/Drivers/spiDma/spiDma.c ****  * @file spiDma.c
+   3:Application/Drivers/spiDma/spiDma.c ****  *
+   4:Application/Drivers/spiDma/spiDma.c ****  * TODO: Comment
+   5:Application/Drivers/spiDma/spiDma.c ****  */
+   6:Application/Drivers/spiDma/spiDma.c **** 
+   7:Application/Drivers/spiDma/spiDma.c **** /*-------------------------------------------------------------------------------------------------
+   8:Application/Drivers/spiDma/spiDma.c ****  *                                                 INCLUDES
+   9:Application/Drivers/spiDma/spiDma.c ****  *-------------------------------------------------------------------------------------------------
+  10:Application/Drivers/spiDma/spiDma.c **** 
+  11:Application/Drivers/spiDma/spiDma.c **** #include <string.h>
+  12:Application/Drivers/spiDma/spiDma.c **** #include "spiDma.h"
+  13:Application/Drivers/spiDma/spiDma.c **** #include "event_groups.h"
+  14:Application/Drivers/spiDma/spiDma.c **** #include "Bits.h"
+  15:Application/Drivers/spiDma/spiDma.c **** #include "FreeRTOS.h"
+  16:Application/Drivers/spiDma/spiDma.c **** #include "timers.h"
+  17:Application/Drivers/spiDma/spiDma.c **** 
+  18:Application/Drivers/spiDma/spiDma.c **** /*-------------------------------------------------------------------------------------------------
+  19:Application/Drivers/spiDma/spiDma.c ****  *                                                 DEFINES
+  20:Application/Drivers/spiDma/spiDma.c ****  *-------------------------------------------------------------------------------------------------
+  21:Application/Drivers/spiDma/spiDma.c **** 
+  22:Application/Drivers/spiDma/spiDma.c **** /* The size of spi tx and rx buffer. */
+  23:Application/Drivers/spiDma/spiDma.c **** #define SPIDMA_TX_SIZE  (5U)
+  24:Application/Drivers/spiDma/spiDma.c **** #define SPIDMA_RX_SIZE  (256U)
+  25:Application/Drivers/spiDma/spiDma.c **** 
+  26:Application/Drivers/spiDma/spiDma.c **** /* Bits mask event of this module. */
+  27:Application/Drivers/spiDma/spiDma.c **** #define SPIDMA_TX_DONE (BIT0)
+  28:Application/Drivers/spiDma/spiDma.c **** #define SPIDMA_RX_DONE (BIT1)
+  29:Application/Drivers/spiDma/spiDma.c **** 
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 2
+
+
+  30:Application/Drivers/spiDma/spiDma.c **** /*-------------------------------------------------------------------------------------------------
+  31:Application/Drivers/spiDma/spiDma.c ****  *                                                VARIABLES
+  32:Application/Drivers/spiDma/spiDma.c ****  *-------------------------------------------------------------------------------------------------
+  33:Application/Drivers/spiDma/spiDma.c **** 
+  34:Application/Drivers/spiDma/spiDma.c **** /** Initialize the data structure array for TX and RX. */
+  35:Application/Drivers/spiDma/spiDma.c **** static uint8_t SPIDMA_Tx_Buffer[SPIDMA_TX_SIZE] __attribute__ ((section(".spiDma_module_space")));
+  36:Application/Drivers/spiDma/spiDma.c **** static uint8_t SPIDMA_Rx_Buffer[SPIDMA_RX_SIZE] __attribute__ ((section(".spiDma_module_space")));
+  37:Application/Drivers/spiDma/spiDma.c **** 
+  38:Application/Drivers/spiDma/spiDma.c **** /** Event group bits contains all event relate to this module. */
+  39:Application/Drivers/spiDma/spiDma.c **** EventGroupHandle_t spiDma_event = NULL;
+  40:Application/Drivers/spiDma/spiDma.c **** 
+  41:Application/Drivers/spiDma/spiDma.c **** /** Contains the configuration for this module. */
+  42:Application/Drivers/spiDma/spiDma.c **** tSpiDmaModule spiDmaModule = 
+  43:Application/Drivers/spiDma/spiDma.c **** {
+  44:Application/Drivers/spiDma/spiDma.c ****    .config.csActiveLevel = GPIO_PIN_RESET,
+  45:Application/Drivers/spiDma/spiDma.c ****    .config.csPin = GPIO_PIN_0,
+  46:Application/Drivers/spiDma/spiDma.c ****    .config.csPort = GPIOA,
+  47:Application/Drivers/spiDma/spiDma.c ****    .states = SPIDMA_IDLE,
+  48:Application/Drivers/spiDma/spiDma.c ****    .spiModule = &hspi1,
+  49:Application/Drivers/spiDma/spiDma.c ****    .ptrRxArr = (uint8_t *)&SPIDMA_Rx_Buffer[0],
+  50:Application/Drivers/spiDma/spiDma.c ****    .ptrTxArr = (uint8_t *)&SPIDMA_Tx_Buffer[0],
+  51:Application/Drivers/spiDma/spiDma.c **** };
+  52:Application/Drivers/spiDma/spiDma.c **** 
+  53:Application/Drivers/spiDma/spiDma.c **** /*-------------------------------------------------------------------------------------------------
+  54:Application/Drivers/spiDma/spiDma.c ****  *                                            FUNCTION DEFINATIONS
+  55:Application/Drivers/spiDma/spiDma.c ****  *-------------------------------------------------------------------------------------------------
+  56:Application/Drivers/spiDma/spiDma.c **** 
+  57:Application/Drivers/spiDma/spiDma.c **** bool SpiDma_Init (tSpiDmaModule * const me)
+  58:Application/Drivers/spiDma/spiDma.c **** {
+  30              		.loc 1 58 1 view -0
+  31              		.cfi_startproc
+  32              		@ args = 0, pretend = 0, frame = 0
+  33              		@ frame_needed = 0, uses_anonymous_args = 0
+  34              		.loc 1 58 1 is_stmt 0 view .LVU1
+  35 0000 08B5     		push	{r3, lr}
+  36              	.LCFI0:
+  37              		.cfi_def_cfa_offset 8
+  38              		.cfi_offset 3, -8
+  39              		.cfi_offset 14, -4
+  59:Application/Drivers/spiDma/spiDma.c ****    bool ret = true;
+  40              		.loc 1 59 4 is_stmt 1 view .LVU2
+  41              	.LVL1:
+  60:Application/Drivers/spiDma/spiDma.c **** 
+  61:Application/Drivers/spiDma/spiDma.c ****    /* Create the spiDma event group. */
+  62:Application/Drivers/spiDma/spiDma.c ****    spiDma_event = xEventGroupCreate();
+  42              		.loc 1 62 4 view .LVU3
+  43              		.loc 1 62 19 is_stmt 0 view .LVU4
+  44 0002 FFF7FEFF 		bl	xEventGroupCreate
+  45              	.LVL2:
+  46              		.loc 1 62 17 view .LVU5
+  47 0006 034B     		ldr	r3, .L5
+  48 0008 1860     		str	r0, [r3]
+  63:Application/Drivers/spiDma/spiDma.c **** 
+  64:Application/Drivers/spiDma/spiDma.c ****    /* Was the event group created successfully? */
+  65:Application/Drivers/spiDma/spiDma.c ****    if (NULL == spiDma_event) {
+  49              		.loc 1 65 4 is_stmt 1 view .LVU6
+  50              		.loc 1 65 7 is_stmt 0 view .LVU7
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 3
+
+
+  51 000a 08B1     		cbz	r0, .L3
+  59:Application/Drivers/spiDma/spiDma.c **** 
+  52              		.loc 1 59 9 view .LVU8
+  53 000c 0120     		movs	r0, #1
+  54              	.L2:
+  55              	.LVL3:
+  66:Application/Drivers/spiDma/spiDma.c ****       ret = false;
+  67:Application/Drivers/spiDma/spiDma.c ****    }
+  68:Application/Drivers/spiDma/spiDma.c **** 
+  69:Application/Drivers/spiDma/spiDma.c ****    return ret;
+  56              		.loc 1 69 4 is_stmt 1 view .LVU9
+  70:Application/Drivers/spiDma/spiDma.c **** }
+  57              		.loc 1 70 1 is_stmt 0 view .LVU10
+  58 000e 08BD     		pop	{r3, pc}
+  59              	.LVL4:
+  60              	.L3:
+  66:Application/Drivers/spiDma/spiDma.c ****       ret = false;
+  61              		.loc 1 66 11 view .LVU11
+  62 0010 0020     		movs	r0, #0
+  63 0012 FCE7     		b	.L2
+  64              	.L6:
+  65              		.align	2
+  66              	.L5:
+  67 0014 00000000 		.word	.LANCHOR0
+  68              		.cfi_endproc
+  69              	.LFE135:
+  71              		.section	.text.SpiDma_Deinit,"ax",%progbits
+  72              		.align	1
+  73              		.global	SpiDma_Deinit
+  74              		.syntax unified
+  75              		.thumb
+  76              		.thumb_func
+  78              	SpiDma_Deinit:
+  79              	.LVL5:
+  80              	.LFB136:
+  71:Application/Drivers/spiDma/spiDma.c **** 
+  72:Application/Drivers/spiDma/spiDma.c **** void SpiDma_Deinit (tSpiDmaModule * const me)
+  73:Application/Drivers/spiDma/spiDma.c **** {
+  81              		.loc 1 73 1 is_stmt 1 view -0
+  82              		.cfi_startproc
+  83              		@ args = 0, pretend = 0, frame = 0
+  84              		@ frame_needed = 0, uses_anonymous_args = 0
+  85              		@ link register save eliminated.
+  74:Application/Drivers/spiDma/spiDma.c **** 
+  75:Application/Drivers/spiDma/spiDma.c **** }
+  86              		.loc 1 75 1 view .LVU13
+  87 0000 7047     		bx	lr
+  88              		.cfi_endproc
+  89              	.LFE136:
+  91              		.section	.text.SpiDma_isBusy,"ax",%progbits
+  92              		.align	1
+  93              		.global	SpiDma_isBusy
+  94              		.syntax unified
+  95              		.thumb
+  96              		.thumb_func
+  98              	SpiDma_isBusy:
+  99              	.LVL6:
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 4
+
+
+ 100              	.LFB137:
+  76:Application/Drivers/spiDma/spiDma.c **** 
+  77:Application/Drivers/spiDma/spiDma.c **** bool SpiDma_isBusy (tSpiDmaModule * const me)
+  78:Application/Drivers/spiDma/spiDma.c **** {
+ 101              		.loc 1 78 1 view -0
+ 102              		.cfi_startproc
+ 103              		@ args = 0, pretend = 0, frame = 0
+ 104              		@ frame_needed = 0, uses_anonymous_args = 0
+ 105              		@ link register save eliminated.
+  79:Application/Drivers/spiDma/spiDma.c ****    return ((me->states != SPIDMA_IDLE) ? true : false);
+ 106              		.loc 1 79 4 view .LVU15
+ 107              		.loc 1 79 15 is_stmt 0 view .LVU16
+ 108 0000 90F91000 		ldrsb	r0, [r0, #16]
+ 109              	.LVL7:
+  80:Application/Drivers/spiDma/spiDma.c **** }
+ 110              		.loc 1 80 1 view .LVU17
+ 111 0004 0038     		subs	r0, r0, #0
+ 112 0006 18BF     		it	ne
+ 113 0008 0120     		movne	r0, #1
+ 114 000a 7047     		bx	lr
+ 115              		.cfi_endproc
+ 116              	.LFE137:
+ 118              		.section	.text.SpiDma_CsPinChangeState,"ax",%progbits
+ 119              		.align	1
+ 120              		.global	SpiDma_CsPinChangeState
+ 121              		.syntax unified
+ 122              		.thumb
+ 123              		.thumb_func
+ 125              	SpiDma_CsPinChangeState:
+ 126              	.LVL8:
+ 127              	.LFB138:
+  81:Application/Drivers/spiDma/spiDma.c **** 
+  82:Application/Drivers/spiDma/spiDma.c **** void SpiDma_CsPinChangeState (tSpiDmaModule * const me, bool state)
+  83:Application/Drivers/spiDma/spiDma.c **** {
+ 128              		.loc 1 83 1 is_stmt 1 view -0
+ 129              		.cfi_startproc
+ 130              		@ args = 0, pretend = 0, frame = 0
+ 131              		@ frame_needed = 0, uses_anonymous_args = 0
+ 132              		.loc 1 83 1 is_stmt 0 view .LVU19
+ 133 0000 08B5     		push	{r3, lr}
+ 134              	.LCFI1:
+ 135              		.cfi_def_cfa_offset 8
+ 136              		.cfi_offset 3, -8
+ 137              		.cfi_offset 14, -4
+  84:Application/Drivers/spiDma/spiDma.c ****    GPIO_PinState pinSt = GPIO_PIN_RESET;
+ 138              		.loc 1 84 4 is_stmt 1 view .LVU20
+ 139              	.LVL9:
+  85:Application/Drivers/spiDma/spiDma.c **** 
+  86:Application/Drivers/spiDma/spiDma.c ****    pinSt = (true == state) ? (me->config.csActiveLevel) : 
+ 140              		.loc 1 86 4 view .LVU21
+ 141              		.loc 1 86 57 is_stmt 0 view .LVU22
+ 142 0002 29B1     		cbz	r1, .L10
+ 143              		.loc 1 86 57 discriminator 1 view .LVU23
+ 144 0004 0278     		ldrb	r2, [r0]	@ zero_extendqisi2
+ 145              	.L11:
+ 146              	.LVL10:
+  87:Application/Drivers/spiDma/spiDma.c ****       ((GPIO_PIN_RESET == me->config.csActiveLevel) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 5
+
+
+  88:Application/Drivers/spiDma/spiDma.c ****    
+  89:Application/Drivers/spiDma/spiDma.c ****    HAL_GPIO_WritePin (me->config.csPort, me->config.csPin, pinSt);
+ 147              		.loc 1 89 4 is_stmt 1 discriminator 4 view .LVU24
+ 148 0006 0189     		ldrh	r1, [r0, #8]
+ 149              	.LVL11:
+ 150              		.loc 1 89 4 is_stmt 0 discriminator 4 view .LVU25
+ 151 0008 4068     		ldr	r0, [r0, #4]
+ 152              	.LVL12:
+ 153              		.loc 1 89 4 discriminator 4 view .LVU26
+ 154 000a FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 155              	.LVL13:
+  90:Application/Drivers/spiDma/spiDma.c **** }
+ 156              		.loc 1 90 1 discriminator 4 view .LVU27
+ 157 000e 08BD     		pop	{r3, pc}
+ 158              	.LVL14:
+ 159              	.L10:
+  87:Application/Drivers/spiDma/spiDma.c ****       ((GPIO_PIN_RESET == me->config.csActiveLevel) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+ 160              		.loc 1 87 37 discriminator 2 view .LVU28
+ 161 0010 0278     		ldrb	r2, [r0]	@ zero_extendqisi2
+  87:Application/Drivers/spiDma/spiDma.c ****       ((GPIO_PIN_RESET == me->config.csActiveLevel) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+ 162              		.loc 1 87 68 discriminator 2 view .LVU29
+ 163 0012 B2FA82F2 		clz	r2, r2
+ 164 0016 5209     		lsrs	r2, r2, #5
+ 165 0018 F5E7     		b	.L11
+ 166              		.cfi_endproc
+ 167              	.LFE138:
+ 169              		.section	.text.SpiDma_write,"ax",%progbits
+ 170              		.align	1
+ 171              		.global	SpiDma_write
+ 172              		.syntax unified
+ 173              		.thumb
+ 174              		.thumb_func
+ 176              	SpiDma_write:
+ 177              	.LVL15:
+ 178              	.LFB139:
+  91:Application/Drivers/spiDma/spiDma.c **** 
+  92:Application/Drivers/spiDma/spiDma.c **** bool SpiDma_write (tSpiDmaModule * const me, uint8_t * data_ptr, uint16_t len)
+  93:Application/Drivers/spiDma/spiDma.c **** {
+ 179              		.loc 1 93 1 is_stmt 1 view -0
+ 180              		.cfi_startproc
+ 181              		@ args = 0, pretend = 0, frame = 0
+ 182              		@ frame_needed = 0, uses_anonymous_args = 0
+ 183              		@ link register save eliminated.
+  94:Application/Drivers/spiDma/spiDma.c ****    bool ret = false;
+ 184              		.loc 1 94 4 view .LVU31
+  95:Application/Drivers/spiDma/spiDma.c ****    EventBits_t bits = (EventBits_t)0U; 
+ 185              		.loc 1 95 4 view .LVU32
+  96:Application/Drivers/spiDma/spiDma.c **** 
+  97:Application/Drivers/spiDma/spiDma.c ****    /* Verify the parameters input. */
+  98:Application/Drivers/spiDma/spiDma.c ****    if (NULL != me)
+ 186              		.loc 1 98 4 view .LVU33
+  99:Application/Drivers/spiDma/spiDma.c ****    {
+ 100:Application/Drivers/spiDma/spiDma.c ****       /* Pointer to the module SpiDma is NULL. */
+ 101:Application/Drivers/spiDma/spiDma.c ****       ret = false;
+ 102:Application/Drivers/spiDma/spiDma.c ****    }
+ 103:Application/Drivers/spiDma/spiDma.c ****    else if (NULL == data_ptr)
+ 104:Application/Drivers/spiDma/spiDma.c ****    {
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 6
+
+
+ 105:Application/Drivers/spiDma/spiDma.c ****       /* Pointer to data array is NULL. */
+ 106:Application/Drivers/spiDma/spiDma.c ****       ret = false;
+ 107:Application/Drivers/spiDma/spiDma.c ****    }
+ 108:Application/Drivers/spiDma/spiDma.c ****    else if (0 >= len)
+ 109:Application/Drivers/spiDma/spiDma.c ****    {
+ 110:Application/Drivers/spiDma/spiDma.c ****       /* The length of data input is equal 0. */
+ 111:Application/Drivers/spiDma/spiDma.c ****       ret = false;
+ 112:Application/Drivers/spiDma/spiDma.c ****    }
+ 113:Application/Drivers/spiDma/spiDma.c **** 
+ 114:Application/Drivers/spiDma/spiDma.c ****    /* If the params input are valid, send data to DMA to transfer this to slave.*/
+ 115:Application/Drivers/spiDma/spiDma.c ****    if (ret)
+ 187              		.loc 1 115 4 view .LVU34
+ 116:Application/Drivers/spiDma/spiDma.c ****    {
+ 117:Application/Drivers/spiDma/spiDma.c ****       /* Copy the data to TX buffer. */
+ 118:Application/Drivers/spiDma/spiDma.c ****       memcpy (me->ptrTxArr, data_ptr, len);
+ 119:Application/Drivers/spiDma/spiDma.c **** 
+ 120:Application/Drivers/spiDma/spiDma.c ****       /* Start transmit data via DMA. */
+ 121:Application/Drivers/spiDma/spiDma.c ****       HAL_SPI_Transmit_DMA (me->spiModule, me->ptrTxArr, len);
+ 122:Application/Drivers/spiDma/spiDma.c **** 
+ 123:Application/Drivers/spiDma/spiDma.c ****       /* Change state into TX when the Spi  */
+ 124:Application/Drivers/spiDma/spiDma.c ****       me->states = SPIDMA_TX;
+ 125:Application/Drivers/spiDma/spiDma.c **** 
+ 126:Application/Drivers/spiDma/spiDma.c ****       /* Blocking the currently executing task until SPI transmit data is finished. */
+ 127:Application/Drivers/spiDma/spiDma.c ****       xEventGroupWaitBits (spiDma_event, SPIDMA_TX_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
+ 128:Application/Drivers/spiDma/spiDma.c **** 
+ 129:Application/Drivers/spiDma/spiDma.c ****       /* Update new state. */
+ 130:Application/Drivers/spiDma/spiDma.c ****       if (SPIDMA_TX_DONE != (bits & SPIDMA_TX_DONE))
+ 131:Application/Drivers/spiDma/spiDma.c ****       {
+ 132:Application/Drivers/spiDma/spiDma.c ****          ret = false;
+ 133:Application/Drivers/spiDma/spiDma.c ****       }
+ 134:Application/Drivers/spiDma/spiDma.c ****    }
+ 135:Application/Drivers/spiDma/spiDma.c **** 
+ 136:Application/Drivers/spiDma/spiDma.c ****    /* Return state. */
+ 137:Application/Drivers/spiDma/spiDma.c ****    return ret;
+ 188              		.loc 1 137 4 view .LVU35
+ 138:Application/Drivers/spiDma/spiDma.c **** }
+ 189              		.loc 1 138 1 is_stmt 0 view .LVU36
+ 190 0000 0020     		movs	r0, #0
+ 191              	.LVL16:
+ 192              		.loc 1 138 1 view .LVU37
+ 193 0002 7047     		bx	lr
+ 194              		.cfi_endproc
+ 195              	.LFE139:
+ 197              		.section	.text.SpiDma_read,"ax",%progbits
+ 198              		.align	1
+ 199              		.global	SpiDma_read
+ 200              		.syntax unified
+ 201              		.thumb
+ 202              		.thumb_func
+ 204              	SpiDma_read:
+ 205              	.LVL17:
+ 206              	.LFB140:
+ 139:Application/Drivers/spiDma/spiDma.c **** 
+ 140:Application/Drivers/spiDma/spiDma.c **** bool SpiDma_read (tSpiDmaModule * const me, uint8_t * data_rx_ptr, uint8_t * data_tx_dummy, uint16_
+ 141:Application/Drivers/spiDma/spiDma.c **** {
+ 207              		.loc 1 141 1 is_stmt 1 view -0
+ 208              		.cfi_startproc
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 7
+
+
+ 209              		@ args = 0, pretend = 0, frame = 0
+ 210              		@ frame_needed = 0, uses_anonymous_args = 0
+ 211              		.loc 1 141 1 is_stmt 0 view .LVU39
+ 212 0000 F0B5     		push	{r4, r5, r6, r7, lr}
+ 213              	.LCFI2:
+ 214              		.cfi_def_cfa_offset 20
+ 215              		.cfi_offset 4, -20
+ 216              		.cfi_offset 5, -16
+ 217              		.cfi_offset 6, -12
+ 218              		.cfi_offset 7, -8
+ 219              		.cfi_offset 14, -4
+ 220 0002 83B0     		sub	sp, sp, #12
+ 221              	.LCFI3:
+ 222              		.cfi_def_cfa_offset 32
+ 142:Application/Drivers/spiDma/spiDma.c ****    bool ret = true;
+ 223              		.loc 1 142 4 is_stmt 1 view .LVU40
+ 224              	.LVL18:
+ 143:Application/Drivers/spiDma/spiDma.c ****    EventBits_t bits = (EventBits_t)0U; 
+ 225              		.loc 1 143 4 view .LVU41
+ 144:Application/Drivers/spiDma/spiDma.c **** 
+ 145:Application/Drivers/spiDma/spiDma.c ****    /* Verify the parameters input. */
+ 146:Application/Drivers/spiDma/spiDma.c ****    if (NULL != me)
+ 226              		.loc 1 146 4 view .LVU42
+ 227              		.loc 1 146 7 is_stmt 0 view .LVU43
+ 228 0004 18B1     		cbz	r0, .L23
+ 147:Application/Drivers/spiDma/spiDma.c ****    {
+ 148:Application/Drivers/spiDma/spiDma.c ****       /* Pointer to the module SpiDma is NULL. */
+ 149:Application/Drivers/spiDma/spiDma.c ****       ret = false;
+ 229              		.loc 1 149 11 view .LVU44
+ 230 0006 0026     		movs	r6, #0
+ 231              	.LVL19:
+ 232              	.L15:
+ 150:Application/Drivers/spiDma/spiDma.c ****    }
+ 151:Application/Drivers/spiDma/spiDma.c ****    else if ((NULL == data_rx_ptr) || (NULL == data_tx_dummy))
+ 152:Application/Drivers/spiDma/spiDma.c ****    {
+ 153:Application/Drivers/spiDma/spiDma.c ****       /* Pointer to data array is NULL. */
+ 154:Application/Drivers/spiDma/spiDma.c ****       ret = false;
+ 155:Application/Drivers/spiDma/spiDma.c ****    }
+ 156:Application/Drivers/spiDma/spiDma.c ****    else if (0 >= len)
+ 157:Application/Drivers/spiDma/spiDma.c ****    {
+ 158:Application/Drivers/spiDma/spiDma.c ****       /* The length of data input is equal 0. */
+ 159:Application/Drivers/spiDma/spiDma.c ****       ret = false;
+ 160:Application/Drivers/spiDma/spiDma.c ****    }
+ 161:Application/Drivers/spiDma/spiDma.c ****    
+ 162:Application/Drivers/spiDma/spiDma.c ****    /* If the params input are valid, send data to DMA to transfer dummy to read data from slave.*/
+ 163:Application/Drivers/spiDma/spiDma.c ****    if (ret)
+ 164:Application/Drivers/spiDma/spiDma.c ****    {
+ 165:Application/Drivers/spiDma/spiDma.c ****       /* Copy the data to TX buffer. */
+ 166:Application/Drivers/spiDma/spiDma.c ****       memcpy (me->ptrTxArr, data_tx_dummy, len);
+ 167:Application/Drivers/spiDma/spiDma.c **** 
+ 168:Application/Drivers/spiDma/spiDma.c ****       /* Start transmit data via DMA. */
+ 169:Application/Drivers/spiDma/spiDma.c ****       HAL_SPI_TransmitReceive_DMA (me->spiModule, me->ptrTxArr, me->ptrRxArr, len);
+ 170:Application/Drivers/spiDma/spiDma.c **** 
+ 171:Application/Drivers/spiDma/spiDma.c ****       /* Change state into TX. */
+ 172:Application/Drivers/spiDma/spiDma.c ****       me->states = SPIDMA_RX;
+ 173:Application/Drivers/spiDma/spiDma.c **** 
+ 174:Application/Drivers/spiDma/spiDma.c ****       /* Blocking the currently executing task until SPI transmit data is finished. */
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 8
+
+
+ 175:Application/Drivers/spiDma/spiDma.c ****       bits = xEventGroupWaitBits (spiDma_event, SPIDMA_RX_DONE, pdTRUE, pdFALSE, portMAX_DELAY);
+ 176:Application/Drivers/spiDma/spiDma.c **** 
+ 177:Application/Drivers/spiDma/spiDma.c ****       /* Update new state. */
+ 178:Application/Drivers/spiDma/spiDma.c ****       if (SPIDMA_RX_DONE != (bits & SPIDMA_RX_DONE))
+ 179:Application/Drivers/spiDma/spiDma.c ****       {
+ 180:Application/Drivers/spiDma/spiDma.c ****          ret = false;
+ 181:Application/Drivers/spiDma/spiDma.c ****       }
+ 182:Application/Drivers/spiDma/spiDma.c **** 
+ 183:Application/Drivers/spiDma/spiDma.c ****       /* Copy data to data array return. */
+ 184:Application/Drivers/spiDma/spiDma.c ****       memcpy (data_rx_ptr, me->ptrRxArr, len);
+ 185:Application/Drivers/spiDma/spiDma.c ****    }
+ 186:Application/Drivers/spiDma/spiDma.c **** 
+ 187:Application/Drivers/spiDma/spiDma.c ****    /* Return state. */
+ 188:Application/Drivers/spiDma/spiDma.c ****    return ret;
+ 233              		.loc 1 188 4 is_stmt 1 view .LVU45
+ 189:Application/Drivers/spiDma/spiDma.c **** }
+ 234              		.loc 1 189 1 is_stmt 0 view .LVU46
+ 235 0008 3046     		mov	r0, r6
+ 236 000a 03B0     		add	sp, sp, #12
+ 237              	.LCFI4:
+ 238              		.cfi_remember_state
+ 239              		.cfi_def_cfa_offset 20
+ 240              		@ sp needed
+ 241 000c F0BD     		pop	{r4, r5, r6, r7, pc}
+ 242              	.LVL20:
+ 243              	.L23:
+ 244              	.LCFI5:
+ 245              		.cfi_restore_state
+ 246              		.loc 1 189 1 view .LVU47
+ 247 000e 0D46     		mov	r5, r1
+ 248 0010 1146     		mov	r1, r2
+ 249              	.LVL21:
+ 250              		.loc 1 189 1 view .LVU48
+ 251 0012 1C46     		mov	r4, r3
+ 252 0014 0746     		mov	r7, r0
+ 151:Application/Drivers/spiDma/spiDma.c ****    {
+ 253              		.loc 1 151 9 is_stmt 1 view .LVU49
+ 151:Application/Drivers/spiDma/spiDma.c ****    {
+ 254              		.loc 1 151 12 is_stmt 0 view .LVU50
+ 255 0016 2DB3     		cbz	r5, .L18
+ 256              	.LVL22:
+ 151:Application/Drivers/spiDma/spiDma.c ****    {
+ 257              		.loc 1 151 35 discriminator 1 view .LVU51
+ 258 0018 32B3     		cbz	r2, .L19
+ 156:Application/Drivers/spiDma/spiDma.c ****    {
+ 259              		.loc 1 156 9 is_stmt 1 view .LVU52
+ 156:Application/Drivers/spiDma/spiDma.c ****    {
+ 260              		.loc 1 156 12 is_stmt 0 view .LVU53
+ 261 001a 0BB9     		cbnz	r3, .L24
+ 159:Application/Drivers/spiDma/spiDma.c ****    }
+ 262              		.loc 1 159 11 view .LVU54
+ 263 001c 0026     		movs	r6, #0
+ 264 001e F3E7     		b	.L15
+ 265              	.L24:
+ 163:Application/Drivers/spiDma/spiDma.c ****    {
+ 266              		.loc 1 163 4 is_stmt 1 view .LVU55
+ 166:Application/Drivers/spiDma/spiDma.c **** 
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 9
+
+
+ 267              		.loc 1 166 7 view .LVU56
+ 268 0020 1A46     		mov	r2, r3
+ 269 0022 8069     		ldr	r0, [r0, #24]
+ 270              	.LVL23:
+ 166:Application/Drivers/spiDma/spiDma.c **** 
+ 271              		.loc 1 166 7 is_stmt 0 view .LVU57
+ 272 0024 FFF7FEFF 		bl	memcpy
+ 273              	.LVL24:
+ 169:Application/Drivers/spiDma/spiDma.c **** 
+ 274              		.loc 1 169 7 is_stmt 1 view .LVU58
+ 275 0028 2346     		mov	r3, r4
+ 276 002a FA69     		ldr	r2, [r7, #28]
+ 277 002c B969     		ldr	r1, [r7, #24]
+ 278 002e 7869     		ldr	r0, [r7, #20]
+ 279 0030 FFF7FEFF 		bl	HAL_SPI_TransmitReceive_DMA
+ 280              	.LVL25:
+ 172:Application/Drivers/spiDma/spiDma.c **** 
+ 281              		.loc 1 172 7 view .LVU59
+ 172:Application/Drivers/spiDma/spiDma.c **** 
+ 282              		.loc 1 172 18 is_stmt 0 view .LVU60
+ 283 0034 0323     		movs	r3, #3
+ 284 0036 3B74     		strb	r3, [r7, #16]
+ 175:Application/Drivers/spiDma/spiDma.c **** 
+ 285              		.loc 1 175 7 is_stmt 1 view .LVU61
+ 175:Application/Drivers/spiDma/spiDma.c **** 
+ 286              		.loc 1 175 14 is_stmt 0 view .LVU62
+ 287 0038 4FF0FF33 		mov	r3, #-1
+ 288 003c 0093     		str	r3, [sp]
+ 289 003e 0023     		movs	r3, #0
+ 290 0040 0122     		movs	r2, #1
+ 291 0042 0221     		movs	r1, #2
+ 292 0044 0948     		ldr	r0, .L25
+ 293 0046 0068     		ldr	r0, [r0]
+ 294 0048 FFF7FEFF 		bl	xEventGroupWaitBits
+ 295              	.LVL26:
+ 178:Application/Drivers/spiDma/spiDma.c ****       {
+ 296              		.loc 1 178 7 is_stmt 1 view .LVU63
+ 178:Application/Drivers/spiDma/spiDma.c ****       {
+ 297              		.loc 1 178 10 is_stmt 0 view .LVU64
+ 298 004c 10F0020F 		tst	r0, #2
+ 299 0050 06D0     		beq	.L21
+ 142:Application/Drivers/spiDma/spiDma.c ****    EventBits_t bits = (EventBits_t)0U; 
+ 300              		.loc 1 142 9 view .LVU65
+ 301 0052 0126     		movs	r6, #1
+ 302              	.L16:
+ 303              	.LVL27:
+ 184:Application/Drivers/spiDma/spiDma.c ****    }
+ 304              		.loc 1 184 7 is_stmt 1 view .LVU66
+ 305 0054 2246     		mov	r2, r4
+ 306 0056 F969     		ldr	r1, [r7, #28]
+ 307 0058 2846     		mov	r0, r5
+ 308              	.LVL28:
+ 184:Application/Drivers/spiDma/spiDma.c ****    }
+ 309              		.loc 1 184 7 is_stmt 0 view .LVU67
+ 310 005a FFF7FEFF 		bl	memcpy
+ 311              	.LVL29:
+ 312 005e D3E7     		b	.L15
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 10
+
+
+ 313              	.LVL30:
+ 314              	.L21:
+ 180:Application/Drivers/spiDma/spiDma.c ****       }
+ 315              		.loc 1 180 14 view .LVU68
+ 316 0060 0026     		movs	r6, #0
+ 317 0062 F7E7     		b	.L16
+ 318              	.LVL31:
+ 319              	.L18:
+ 154:Application/Drivers/spiDma/spiDma.c ****    }
+ 320              		.loc 1 154 11 view .LVU69
+ 321 0064 0026     		movs	r6, #0
+ 322 0066 CFE7     		b	.L15
+ 323              	.L19:
+ 324 0068 0026     		movs	r6, #0
+ 325 006a CDE7     		b	.L15
+ 326              	.L26:
+ 327              		.align	2
+ 328              	.L25:
+ 329 006c 00000000 		.word	.LANCHOR0
+ 330              		.cfi_endproc
+ 331              	.LFE140:
+ 333              		.section	.text.SpiDma_WriteCompleteIrq,"ax",%progbits
+ 334              		.align	1
+ 335              		.global	SpiDma_WriteCompleteIrq
+ 336              		.syntax unified
+ 337              		.thumb
+ 338              		.thumb_func
+ 340              	SpiDma_WriteCompleteIrq:
+ 341              	.LVL32:
+ 342              	.LFB141:
+ 190:Application/Drivers/spiDma/spiDma.c **** 
+ 191:Application/Drivers/spiDma/spiDma.c **** 
+ 192:Application/Drivers/spiDma/spiDma.c **** void SpiDma_WriteCompleteIrq (tSpiDmaModule * const me)
+ 193:Application/Drivers/spiDma/spiDma.c **** {
+ 343              		.loc 1 193 1 is_stmt 1 view -0
+ 344              		.cfi_startproc
+ 345              		@ args = 0, pretend = 0, frame = 8
+ 346              		@ frame_needed = 0, uses_anonymous_args = 0
+ 347              		.loc 1 193 1 is_stmt 0 view .LVU71
+ 348 0000 00B5     		push	{lr}
+ 349              	.LCFI6:
+ 350              		.cfi_def_cfa_offset 4
+ 351              		.cfi_offset 14, -4
+ 352 0002 83B0     		sub	sp, sp, #12
+ 353              	.LCFI7:
+ 354              		.cfi_def_cfa_offset 16
+ 194:Application/Drivers/spiDma/spiDma.c ****    /* xHigherPriorityTaskWoken must be initialised to pdFALSE. */
+ 195:Application/Drivers/spiDma/spiDma.c ****    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+ 355              		.loc 1 195 4 is_stmt 1 view .LVU72
+ 356              		.loc 1 195 15 is_stmt 0 view .LVU73
+ 357 0004 0023     		movs	r3, #0
+ 358 0006 0193     		str	r3, [sp, #4]
+ 196:Application/Drivers/spiDma/spiDma.c **** 
+ 197:Application/Drivers/spiDma/spiDma.c ****    /* Write data complete, change the state of this module to TxEnd. */
+ 198:Application/Drivers/spiDma/spiDma.c ****    me->states = SPIDMA_IDLE;
+ 359              		.loc 1 198 4 is_stmt 1 view .LVU74
+ 360              		.loc 1 198 15 is_stmt 0 view .LVU75
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 11
+
+
+ 361 0008 0374     		strb	r3, [r0, #16]
+ 199:Application/Drivers/spiDma/spiDma.c **** 
+ 200:Application/Drivers/spiDma/spiDma.c ****    /* Set bit to inform the TX is finish. */
+ 201:Application/Drivers/spiDma/spiDma.c ****    xEventGroupSetBitsFromISR (spiDma_event, SPIDMA_TX_DONE, &xHigherPriorityTaskWoken);
+ 362              		.loc 1 201 4 is_stmt 1 view .LVU76
+ 363 000a 01AB     		add	r3, sp, #4
+ 364 000c 0122     		movs	r2, #1
+ 365 000e 0449     		ldr	r1, .L29
+ 366 0010 0968     		ldr	r1, [r1]
+ 367 0012 0448     		ldr	r0, .L29+4
+ 368              	.LVL33:
+ 369              		.loc 1 201 4 is_stmt 0 view .LVU77
+ 370 0014 FFF7FEFF 		bl	xTimerPendFunctionCallFromISR
+ 371              	.LVL34:
+ 202:Application/Drivers/spiDma/spiDma.c **** }  
+ 372              		.loc 1 202 1 view .LVU78
+ 373 0018 03B0     		add	sp, sp, #12
+ 374              	.LCFI8:
+ 375              		.cfi_def_cfa_offset 4
+ 376              		@ sp needed
+ 377 001a 5DF804FB 		ldr	pc, [sp], #4
+ 378              	.L30:
+ 379 001e 00BF     		.align	2
+ 380              	.L29:
+ 381 0020 00000000 		.word	.LANCHOR0
+ 382 0024 00000000 		.word	vEventGroupSetBitsCallback
+ 383              		.cfi_endproc
+ 384              	.LFE141:
+ 386              		.section	.text.SpiDma_ReadCompleteIrq,"ax",%progbits
+ 387              		.align	1
+ 388              		.global	SpiDma_ReadCompleteIrq
+ 389              		.syntax unified
+ 390              		.thumb
+ 391              		.thumb_func
+ 393              	SpiDma_ReadCompleteIrq:
+ 394              	.LVL35:
+ 395              	.LFB142:
+ 203:Application/Drivers/spiDma/spiDma.c **** 
+ 204:Application/Drivers/spiDma/spiDma.c **** void SpiDma_ReadCompleteIrq (tSpiDmaModule * const me)
+ 205:Application/Drivers/spiDma/spiDma.c **** {
+ 396              		.loc 1 205 1 is_stmt 1 view -0
+ 397              		.cfi_startproc
+ 398              		@ args = 0, pretend = 0, frame = 8
+ 399              		@ frame_needed = 0, uses_anonymous_args = 0
+ 400              		.loc 1 205 1 is_stmt 0 view .LVU80
+ 401 0000 00B5     		push	{lr}
+ 402              	.LCFI9:
+ 403              		.cfi_def_cfa_offset 4
+ 404              		.cfi_offset 14, -4
+ 405 0002 83B0     		sub	sp, sp, #12
+ 406              	.LCFI10:
+ 407              		.cfi_def_cfa_offset 16
+ 206:Application/Drivers/spiDma/spiDma.c ****    /* xHigherPriorityTaskWoken must be initialised to pdFALSE. */
+ 207:Application/Drivers/spiDma/spiDma.c ****    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+ 408              		.loc 1 207 4 is_stmt 1 view .LVU81
+ 409              		.loc 1 207 15 is_stmt 0 view .LVU82
+ 410 0004 0023     		movs	r3, #0
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 12
+
+
+ 411 0006 0193     		str	r3, [sp, #4]
+ 208:Application/Drivers/spiDma/spiDma.c **** 
+ 209:Application/Drivers/spiDma/spiDma.c ****    /* Read data complete, change the state of this module to RxEnd. */
+ 210:Application/Drivers/spiDma/spiDma.c ****    me->states = SPIDMA_IDLE;
+ 412              		.loc 1 210 4 is_stmt 1 view .LVU83
+ 413              		.loc 1 210 15 is_stmt 0 view .LVU84
+ 414 0008 0374     		strb	r3, [r0, #16]
+ 211:Application/Drivers/spiDma/spiDma.c **** 
+ 212:Application/Drivers/spiDma/spiDma.c ****    /* Set bit to inform the RX is finish. */
+ 213:Application/Drivers/spiDma/spiDma.c ****    xEventGroupSetBitsFromISR (spiDma_event, SPIDMA_RX_DONE, &xHigherPriorityTaskWoken);
+ 415              		.loc 1 213 4 is_stmt 1 view .LVU85
+ 416 000a 01AB     		add	r3, sp, #4
+ 417 000c 0222     		movs	r2, #2
+ 418 000e 0449     		ldr	r1, .L33
+ 419 0010 0968     		ldr	r1, [r1]
+ 420 0012 0448     		ldr	r0, .L33+4
+ 421              	.LVL36:
+ 422              		.loc 1 213 4 is_stmt 0 view .LVU86
+ 423 0014 FFF7FEFF 		bl	xTimerPendFunctionCallFromISR
+ 424              	.LVL37:
+ 214:Application/Drivers/spiDma/spiDma.c **** }
+ 425              		.loc 1 214 1 view .LVU87
+ 426 0018 03B0     		add	sp, sp, #12
+ 427              	.LCFI11:
+ 428              		.cfi_def_cfa_offset 4
+ 429              		@ sp needed
+ 430 001a 5DF804FB 		ldr	pc, [sp], #4
+ 431              	.L34:
+ 432 001e 00BF     		.align	2
+ 433              	.L33:
+ 434 0020 00000000 		.word	.LANCHOR0
+ 435 0024 00000000 		.word	vEventGroupSetBitsCallback
+ 436              		.cfi_endproc
+ 437              	.LFE142:
+ 439              		.section	.text.HAL_SPI_TxCpltCallback,"ax",%progbits
+ 440              		.align	1
+ 441              		.global	HAL_SPI_TxCpltCallback
+ 442              		.syntax unified
+ 443              		.thumb
+ 444              		.thumb_func
+ 446              	HAL_SPI_TxCpltCallback:
+ 447              	.LVL38:
+ 448              	.LFB143:
+ 215:Application/Drivers/spiDma/spiDma.c **** 
+ 216:Application/Drivers/spiDma/spiDma.c **** void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+ 217:Application/Drivers/spiDma/spiDma.c **** {
+ 449              		.loc 1 217 1 is_stmt 1 view -0
+ 450              		.cfi_startproc
+ 451              		@ args = 0, pretend = 0, frame = 0
+ 452              		@ frame_needed = 0, uses_anonymous_args = 0
+ 453              		.loc 1 217 1 is_stmt 0 view .LVU89
+ 454 0000 08B5     		push	{r3, lr}
+ 455              	.LCFI12:
+ 456              		.cfi_def_cfa_offset 8
+ 457              		.cfi_offset 3, -8
+ 458              		.cfi_offset 14, -4
+ 218:Application/Drivers/spiDma/spiDma.c ****    SpiDma_WriteCompleteIrq (&spiDmaModule);
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 13
+
+
+ 459              		.loc 1 218 4 is_stmt 1 view .LVU90
+ 460 0002 0248     		ldr	r0, .L37
+ 461              	.LVL39:
+ 462              		.loc 1 218 4 is_stmt 0 view .LVU91
+ 463 0004 FFF7FEFF 		bl	SpiDma_WriteCompleteIrq
+ 464              	.LVL40:
+ 219:Application/Drivers/spiDma/spiDma.c **** }
+ 465              		.loc 1 219 1 view .LVU92
+ 466 0008 08BD     		pop	{r3, pc}
+ 467              	.L38:
+ 468 000a 00BF     		.align	2
+ 469              	.L37:
+ 470 000c 00000000 		.word	.LANCHOR1
+ 471              		.cfi_endproc
+ 472              	.LFE143:
+ 474              		.section	.text.HAL_SPI_RxCpltCallback,"ax",%progbits
+ 475              		.align	1
+ 476              		.global	HAL_SPI_RxCpltCallback
+ 477              		.syntax unified
+ 478              		.thumb
+ 479              		.thumb_func
+ 481              	HAL_SPI_RxCpltCallback:
+ 482              	.LVL41:
+ 483              	.LFB144:
+ 220:Application/Drivers/spiDma/spiDma.c **** 
+ 221:Application/Drivers/spiDma/spiDma.c **** void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
+ 222:Application/Drivers/spiDma/spiDma.c **** {
+ 484              		.loc 1 222 1 is_stmt 1 view -0
+ 485              		.cfi_startproc
+ 486              		@ args = 0, pretend = 0, frame = 0
+ 487              		@ frame_needed = 0, uses_anonymous_args = 0
+ 488              		.loc 1 222 1 is_stmt 0 view .LVU94
+ 489 0000 08B5     		push	{r3, lr}
+ 490              	.LCFI13:
+ 491              		.cfi_def_cfa_offset 8
+ 492              		.cfi_offset 3, -8
+ 493              		.cfi_offset 14, -4
+ 223:Application/Drivers/spiDma/spiDma.c ****    SpiDma_ReadCompleteIrq (&spiDmaModule);
+ 494              		.loc 1 223 4 is_stmt 1 view .LVU95
+ 495 0002 0248     		ldr	r0, .L41
+ 496              	.LVL42:
+ 497              		.loc 1 223 4 is_stmt 0 view .LVU96
+ 498 0004 FFF7FEFF 		bl	SpiDma_ReadCompleteIrq
+ 499              	.LVL43:
+ 224:Application/Drivers/spiDma/spiDma.c **** }...
+ 500              		.loc 1 224 1 view .LVU97
+ 501 0008 08BD     		pop	{r3, pc}
+ 502              	.L42:
+ 503 000a 00BF     		.align	2
+ 504              	.L41:
+ 505 000c 00000000 		.word	.LANCHOR1
+ 506              		.cfi_endproc
+ 507              	.LFE144:
+ 509              		.global	spiDmaModule
+ 510              		.global	spiDma_event
+ 511              		.section	.bss.spiDma_event,"aw",%nobits
+ 512              		.align	2
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 14
+
+
+ 513              		.set	.LANCHOR0,. + 0
+ 516              	spiDma_event:
+ 517 0000 00000000 		.space	4
+ 518              		.section	.data.spiDmaModule,"aw"
+ 519              		.align	2
+ 520              		.set	.LANCHOR1,. + 0
+ 523              	spiDmaModule:
+ 524 0000 00       		.byte	0
+ 525 0001 000000   		.space	3
+ 526 0004 00000240 		.word	1073872896
+ 527 0008 0100     		.short	1
+ 528 000a 00000000 		.space	6
+ 528      0000
+ 529 0010 00       		.byte	0
+ 530 0011 000000   		.space	3
+ 531 0014 00000000 		.word	hspi1
+ 532 0018 00010000 		.word	SPIDMA_Tx_Buffer
+ 533 001c 00000000 		.word	SPIDMA_Rx_Buffer
+ 534              		.section	.spiDma_module_space,"aw"
+ 535              		.align	2
+ 538              	SPIDMA_Rx_Buffer:
+ 539 0000 00000000 		.space	256
+ 539      00000000 
+ 539      00000000 
+ 539      00000000 
+ 539      00000000 
+ 542              	SPIDMA_Tx_Buffer:
+ 543 0100 00000000 		.space	5
+ 543      00
+ 544              		.text
+ 545              	.Letext0:
+ 546              		.file 2 "c:\\program files (x86)\\gnu arm embedded toolchain\\10 2021.10\\arm-none-eabi\\include\\
+ 547              		.file 3 "c:\\program files (x86)\\gnu arm embedded toolchain\\10 2021.10\\arm-none-eabi\\include\\
+ 548              		.file 4 "Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/portmacro.h"
+ 549              		.file 5 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f411xe.h"
+ 550              		.file 6 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h"
+ 551              		.file 7 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h"
+ 552              		.file 8 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h"
+ 553              		.file 9 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h"
+ 554              		.file 10 "Application/Drivers/spiDma/spiDma.h"
+ 555              		.file 11 "Core/Inc/spi.h"
+ 556              		.file 12 "Middlewares/Third_Party/FreeRTOS/Source/include/event_groups.h"
+ 557              		.file 13 "Middlewares/Third_Party/FreeRTOS/Source/include/timers.h"
+ 558              		.file 14 "<built-in>"
+ARM GAS  C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s 			page 15
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 spiDma.c
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:20     .text.SpiDma_Init:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:26     .text.SpiDma_Init:00000000 SpiDma_Init
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:67     .text.SpiDma_Init:00000014 $d
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:72     .text.SpiDma_Deinit:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:78     .text.SpiDma_Deinit:00000000 SpiDma_Deinit
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:92     .text.SpiDma_isBusy:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:98     .text.SpiDma_isBusy:00000000 SpiDma_isBusy
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:119    .text.SpiDma_CsPinChangeState:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:125    .text.SpiDma_CsPinChangeState:00000000 SpiDma_CsPinChangeState
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:170    .text.SpiDma_write:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:176    .text.SpiDma_write:00000000 SpiDma_write
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:198    .text.SpiDma_read:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:204    .text.SpiDma_read:00000000 SpiDma_read
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:329    .text.SpiDma_read:0000006c $d
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:334    .text.SpiDma_WriteCompleteIrq:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:340    .text.SpiDma_WriteCompleteIrq:00000000 SpiDma_WriteCompleteIrq
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:381    .text.SpiDma_WriteCompleteIrq:00000020 $d
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:387    .text.SpiDma_ReadCompleteIrq:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:393    .text.SpiDma_ReadCompleteIrq:00000000 SpiDma_ReadCompleteIrq
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:434    .text.SpiDma_ReadCompleteIrq:00000020 $d
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:440    .text.HAL_SPI_TxCpltCallback:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:446    .text.HAL_SPI_TxCpltCallback:00000000 HAL_SPI_TxCpltCallback
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:470    .text.HAL_SPI_TxCpltCallback:0000000c $d
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:475    .text.HAL_SPI_RxCpltCallback:00000000 $t
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:481    .text.HAL_SPI_RxCpltCallback:00000000 HAL_SPI_RxCpltCallback
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:505    .text.HAL_SPI_RxCpltCallback:0000000c $d
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:523    .data.spiDmaModule:00000000 spiDmaModule
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:516    .bss.spiDma_event:00000000 spiDma_event
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:512    .bss.spiDma_event:00000000 $d
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:519    .data.spiDmaModule:00000000 $d
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:542    .spiDma_module_space:00000100 SPIDMA_Tx_Buffer
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:538    .spiDma_module_space:00000000 SPIDMA_Rx_Buffer
+C:\Users\minhp\AppData\Local\Temp\ccm6wXp7.s:535    .spiDma_module_space:00000000 $d
+
+UNDEFINED SYMBOLS
+xEventGroupCreate
+HAL_GPIO_WritePin
+memcpy
+HAL_SPI_TransmitReceive_DMA
+xEventGroupWaitBits
+xTimerPendFunctionCallFromISR
+vEventGroupSetBitsCallback
+hspi1

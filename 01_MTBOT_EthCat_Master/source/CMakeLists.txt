@@ -1,5 +1,0 @@
-set(SOURCES main.c)
-add_library (lib STATIC log/log.h log/log.c)
-add_executable(MTBOT_EthCatMaster ${SOURCES})
-target_link_libraries(MTBOT_EthCatMaster soem lib)
-install(TARGETS MTBOT_EthCatMaster DESTINATION bin)
